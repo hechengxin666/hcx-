@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互式项目进度表（权限分级版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+        body {
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .intro {
+            color: #4a5568;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .auth-control {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+        .auth-btn {
+            padding: 8px 16px;
+            background-color: #4299e1;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .auth-btn:hover {
+            background-color: #3182ce;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border: 1px solid #e2e8f0;
+        }
+        th {
+            background-color: #4299e1;
+            color: #fff;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        tr:hover {
+            background-color: #f1f5f9;
+        }
+        .task-parent {
+            font-weight: 600;
+            color: #2d3748;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .task-parent::before {
+            content: "▼";
+            font-size: 12px;
+            margin-right: 8px;
+            transition: transform 0.2s;
+        }
+        .task-parent.collapsed::before {
+            transform: rotate(-90deg);
+        }
+        .task-child {
+            padding-left: 30px !important;
+            color: #4a5568;
+        }
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        input[type="text"] {
+            width: 60px;
+            padding: 3px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        .callout {
+            padding: 15px;
+            background-color: #fef7ec;
+            border-left: 4px solid #f6ad55;
+            border-radius: 4px;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        .callout em {
+            color: #718096;
+            font-style: normal;
+        }
+        /* 完成任务样式 */
+        .task-done {
+            text-decoration: line-through;
+            color: #718096;
+        }
+        /* 查看模式样式 */
+        .view-mode input[type="checkbox"] {
+            cursor: default;
+            opacity: 0.7;
+        }
+        .view-mode input[type="text"] {
+            background-color: #f1f5f9;
+            color: #4a5568;
+            border: none;
+            pointer-events: none;
+        }
+        /* 详情弹窗样式 */
+        .detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 25px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .modal-info {
+            margin-bottom: 10px;
+            color: #4a5568;
+        }
+        .modal-info span {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        .close-modal {
+            margin-top: 20px;
+            padding: 8px 16px;
+            background-color: #4299e1;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            float: right;
+        }
+        .close-modal:hover {
+            background-color: #3182ce;
+        }
+        .auth-tip {
+            color: #718096;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        /* 链接分享提示样式 */
+        .share-tip {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e8f4f8;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+        }
+        .share-tip h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .share-tip ul {
+            margin-left: 20px;
+            color: #4a5568;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>交互式项目进度表（权限分级版）</h1>
+        <p class="intro">交互操作：1. 管理者可解锁编辑权限，他人默认仅查看；2. 点击一级任务名称展开/折叠子任务；3. 点击任务行可查看详情。</p>
+        
+        <!-- 权限控制区域 -->
+        <div class="auth-control">
+            <span>当前模式：<strong id="authMode">仅查看</strong></span>
+            <button class="auth-btn" id="unlockBtn" onclick="unlockEdit()">管理者解锁编辑</button>
+            <p class="auth-tip">提示：解锁后可修改进度、标记任务完成，刷新页面保留状态</p>
+        </div>
+
+        <table id="taskTable" class="view-mode">
+            <thead>
+                <tr>
+                    <th width="8%">完成状态</th>
+                    <th width="22%">任务名称</th>
+                    <th width="15%">负责人</th>
+                    <th width="15%">计划开始时间</th>
+                    <th width="15%">计划结束时间</th>
+                    <th width="12%">实际进度</th>
+                    <th width="13%">备注</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 启动阶段 -->
+                <tr class="task-row" data-id="task1" data-name="一、项目启动阶段" data-leader="项目经理" data-start="2026-02-01" data-end="2026-02-10" data-progress="0%" data-remark="完成后进入规划阶段" data-status="未完成">
+                    <td><input type="checkbox" class="parent-checkbox" data-target="stage1" disabled></td>
+                    <td class="task-parent" onclick="toggleSubTask('stage1')">一、项目启动阶段</td>
+                    <td>项目经理</td>
+                    <td>2026-02-01</td>
+                    <td>2026-02-10</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>完成后进入规划阶段</td>
+                </tr>
+                <tr class="subtask stage1 task-row" data-id="task1-1" data-name="1.1 项目需求确认" data-leader="产品经理" data-start="2026-02-01" data-end="2026-02-03" data-progress="0%" data-remark="需与客户确认最终需求" data-status="未完成">
+                    <td><input type="checkbox" class="child-checkbox" data-parent="stage1" disabled></td>
+                    <td class="task-child">1.1 项目需求确认</td>
+                    <td>产品经理</td>
+                    <td>2026-02-01</td>
+                    <td>2026-02-03</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>需与客户确认最终需求</td>
+                </tr>
+                <tr class="subtask stage1 task-row" data-id="task1-2" data-name="1.2 项目团队组建" data-leader="项目经理" data-start="2026-02-04" data-end="2026-02-06" data-progress="0%" data-remark="确定各岗位负责人" data-status="未完成">
+                    <td><input type="checkbox" class="child-checkbox" data-parent="stage1" disabled></td>
+                    <td class="task-child">1.2 项目团队组建</td>
+                    <td>项目经理</td>
+                    <td>2026-02-04</td>
+                    <td>2026-02-06</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>确定各岗位负责人</td>
+                </tr>
+                <tr class="subtask stage1 task-row" data-id="task1-3" data-name="1.3 项目启动会议" data-leader="项目经理" data-start="2026-02-07" data-end="2026-02-10" data-progress="0%" data-remark="明确项目目标与分工" data-status="未完成">
+                    <td><input type="checkbox" class="child-checkbox" data-parent="stage1" disabled></td>
+                    <td class="task-child">1.3 项目启动会议</td>
+                    <td>项目经理</td>
+                    <td>2026-02-07</td>
+                    <td>2026-02-10</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>明确项目目标与分工</td>
+                </tr>
+
+                <!-- 规划阶段 -->
+                <tr class="task-row" data-id="task2" data-name="二、项目规划阶段" data-leader="项目经理" data-start="2026-02-11" data-end="2026-02-25" data-progress="0%" data-remark="输出完整规划方案" data-status="未完成">
+                    <td><input type="checkbox" class="parent-checkbox" data-target="stage2" disabled></td>
+                    <td class="task-parent" onclick="toggleSubTask('stage2')">二、项目规划阶段</td>
+                    <td>项目经理</td>
+                    <td>2026-02-11</td>
+                    <td>2026-02-25</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>输出完整规划方案</td>
+                </tr>
+                <tr class="subtask stage2 task-row" data-id="task2-1" data-name="2.1 项目计划制定" data-leader="项目经理" data-start="2026-02-11" data-end="2026-02-15" data-progress="0%" data-remark="含进度、成本、风险计划" data-status="未完成">
+                    <td><input type="checkbox" class="child-checkbox" data-parent="stage2" disabled></td>
+                    <td class="task-child">2.1 项目计划制定</td>
+                    <td>项目经理</td>
+                    <td>2026-02-11</td>
+                    <td>2026-02-15</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>含进度、成本、风险计划</td>
+                </tr>
+                <tr class="subtask stage2 task-row" data-id="task2-2" data-name="2.2 需求文档编写" data-leader="产品经理" data-start="2026-02-16" data-end="2026-02-20" data-progress="0%" data-remark="文档需团队评审" data-status="未完成">
+                    <td><input type="checkbox" class="child-checkbox" data-parent="stage2" disabled></td>
+                    <td class="task-child">2.2 需求文档编写</td>
+                    <td>产品经理</td>
+                    <td>2026-02-16</td>
+                    <td>2026-02-20</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>文档需团队评审</td>
+                </tr>
+                <tr class="subtask stage2 task-row" data-id="task2-3" data-name="2.3 规划方案评审" data-leader="全体成员" data-start="2026-02-21" data-end="2026-02-25" data-progress="0%" data-remark="修改后确认落地" data-status="未完成">
+                    <td><input type="checkbox" class="child-checkbox" data-parent="stage2" disabled></td>
+                    <td class="task-child">2.3 规划方案评审</td>
+                    <td>全体成员</td>
+                    <td>2026-02-21</td>
+                    <td>2026-02-25</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>修改后确认落地</td>
+                </tr>
+
+                <!-- 执行阶段 -->
+                <tr class="task-row" data-id="task3" data-name="三、项目执行阶段" data-leader="各模块负责人" data-start="2026-02-26" data-end="2026-04-15" data-progress="0%" data-remark="核心执行阶段，每周同步" data-status="未完成">
+                    <td><input type="checkbox" class="parent-checkbox" data-target="stage3" disabled></td>
+                    <td class="task-parent" onclick="toggleSubTask('stage3')">三、项目执行阶段</td>
+                    <td>各模块负责人</td>
+                    <td>2026-02-26</td>
+                    <td>2026-04-15</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>核心执行阶段，每周同步</td>
+                </tr>
+
+                <!-- 测试阶段 -->
+                <tr class="task-row" data-id="task4" data-name="四、项目测试阶段" data-leader="测试工程师" data-start="2026-04-16" data-end="2026-04-30" data-progress="0%" data-remark="修复bug并回归测试" data-status="未完成">
+                    <td><input type="checkbox" class="parent-checkbox" data-target="stage4" disabled></td>
+                    <td class="task-parent" onclick="toggleSubTask('stage4')">四、项目测试阶段</td>
+                    <td>测试工程师</td>
+                    <td>2026-04-16</td>
+                    <td>2026-04-30</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>修复bug并回归测试</td>
+                </tr>
+
+                <!-- 验收阶段 -->
+                <tr class="task-row" data-id="task5" data-name="五、项目验收阶段" data-leader="项目经理" data-start="2026-05-01" data-end="2026-05-10" data-progress="0%" data-remark="客户验收并交付成果" data-status="未完成">
+                    <td><input type="checkbox" class="parent-checkbox" data-target="stage5" disabled></td>
+                    <td class="task-parent" onclick="toggleSubTask('stage5')">五、项目验收阶段</td>
+                    <td>项目经理</td>
+                    <td>2026-05-01</td>
+                    <td>2026-05-10</td>
+                    <td><input type="text" value="0%" disabled></td>
+                    <td>客户验收并交付成果</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="callout">
+            <p>使用提示：1. 他人打开默认仅查看，无法修改进度、标记任务；2. 管理者点击「解锁编辑」按钮后，可恢复所有编辑功能，状态实时保存；3. 子任务折叠/展开、任务详情查看功能对所有用户开放；4. 仅当前浏览器可保留解锁状态，他人设备需重新解锁。</p>
+        </div>
+
+        <!-- 链接转发方案说明 -->
+        <div class="share-tip">
+            <h3>🔗 表格生成链接转发教程</h3>
+            <ul>
+                <li><strong>核心逻辑</strong>：本地HTML文件无法直接生成可转发链接，需先将文件部署到线上（云盘/服务器），再生成链接转发。</li>
+                <li><strong>方案一：云盘生成链接（推荐，零成本）</strong>
+                    1. 将保存好的HTML文件（如“项目进度表.html”）上传至百度网盘/阿里云盘/OneDrive；
+                    2. 找到文件，点击「分享」，设置权限为「仅查看/访客可下载」（禁止设为可编辑）；
+                    3. 生成分享链接，复制后转发给他人，对方点击链接可下载文件或在线预览（主流云盘均支持HTML预览）。
+                </li>
+                <li><strong>方案二：局域网临时链接（适合内部团队）</strong>
+                    1. 电脑安装Python/Node.js，打开命令行进入HTML文件所在文件夹；
+                    2. Python用户输入命令：<code>python -m http.server 8080</code>；Node.js用户输入：<code>http-server -p 8080</code>；
+                    3. 查看自己电脑的局域网IP（如192.168.1.100），生成链接：<code>http://你的IP:8080/项目进度表.html</code>；
+                    4. 转发该链接给同一局域网内的人，对方浏览器打开即可查看，你修改文件后对方刷新即同步。
+                </li>
+                <li><strong>方案三：免费静态托管（长期可用）</strong>
+                    1. 注册GitHub/Gitee账号，创建公开仓库，上传HTML文件；
+                    2. 开启静态页面服务（GitHub Pages/Gitee Pages），生成公开访问链接；
+                    3. 转发链接给他人，全球可访问，你更新仓库文件后链接内容自动同步。
+                </li>
+                <li><strong>注意事项</strong>：所有方案转发后，他人均默认「仅查看」权限，仅你可在本地解锁编辑，数据安全可控。</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div class="detail-modal" id="detailModal">
+        <div class="modal-content">
+            <h3 class="modal-title" id="modalTitle">任务详情</h3>
+            <div class="modal-info"><span>负责人：</span><span id="modalLeader"></span></div>
+            <div class="modal-info"><span>计划开始时间：</span><span id="modalStart"></span></div>
+            <div class="modal-info"><span>计划结束时间：</span><span id="modalEnd"></span></div>
+            <div class="modal-info"><span>实际进度：</span><span id="modalProgress"></span></div>
+            <div class="modal-info"><span>完成状态：</span><span id="modalStatus"></span></div>
+            <div class="modal-info" style="margin-top: 15px;"><span>备注：</span><span id="modalRemark"></span></div>
+            <button class="close-modal" onclick="closeModal()">关闭</button>
+        </div>
+    </div>
+
+    <script>
+        // 子任务折叠/展开功能
+        function toggleSubTask(stage) {
+            const subtasks = document.querySelectorAll(`.subtask.${stage}`);
+            const parentTask = document.querySelector(`.task-parent[onclick="toggleSubTask('${stage}')"]`);
+            subtasks.forEach(task => {
+                task.style.display = task.style.display === 'none' ? '' : 'none';
+            });
+            parentTask.classList.toggle('collapsed');
+        }
+
+        // 解锁编辑权限
+        function unlockEdit() {
+            const table = document.getElementById('taskTable');
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const progressInputs = document.querySelectorAll('input[type="text"]');
+            const authMode = document.getElementById('authMode');
+            const unlockBtn = document.getElementById('unlockBtn');
+
+            // 切换为编辑模式
+            table.classList.remove('view-mode');
+            checkboxes.forEach(cb => cb.disabled = false);
+            progressInputs.forEach(input => input.disabled = false);
+            authMode.textContent = '可编辑';
+            unlockBtn.textContent = '已解锁';
+            unlockBtn.disabled = true;
+            unlockBtn.style.backgroundColor = '#48bb78';
+
+            // 加载本地存储状态并绑定编辑事件
+            loadTaskStatus();
+            bindEditEvents();
+        }
+
+        // 绑定编辑相关事件
+        function bindEditEvents() {
+            // 父复选框联动子复选框
+            document.querySelectorAll('.parent-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const target = this.getAttribute('data-target');
+                    const childCheckboxes = document.querySelectorAll(`.child-checkbox[data-parent="${target}"]`);
+                    childCheckboxes.forEach(child => {
+                        child.checked = this.checked;
+                        updateTaskStyle(child);
+                        const taskRow = child.closest('.task-row');
+                        taskRow.setAttribute('data-status', child.checked ? '已完成' : '未完成');
+                    });
+                    updateTaskStyle(this);
+                    const taskRow = this.closest('.task-row');
+                    taskRow.setAttribute('data-status', this.checked ? '已完成' : '未完成');
+                    saveTaskStatus();
+                });
+            });
+
+            // 子复选框联动父复选框
+            document.querySelectorAll('.child-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const parent = this.getAttribute('data-parent');
+                    const parentCheckbox = document.querySelector(`.parent-checkbox[data-target="${parent}"]`);
+                    const siblingCheckboxes = document.querySelectorAll(`.child-checkbox[data-parent="${parent}"]`);
+                    const allChecked = Array.from(siblingCheckboxes).every(cb => cb.checked);
+                    parentCheckbox.checked = allChecked;
+                    updateTaskStyle(this);
+                    updateTaskStyle(parentCheckbox);
+                    const childRow = this.closest('.task-row');
+                    childRow.setAttribute('data-status', this.checked ? '已完成' : '未完成');
+                    const parentRow = parentCheckbox.closest('.task-row');
+                    parentRow.setAttribute('data-status', allChecked ? '已完成' : '未完成');
+                    saveTaskStatus();
+                });
+            });
+
+            // 进度值修改与保存
+            document.querySelectorAll('td input[type="text"]').forEach(input => {
+                input.addEventListener('input', function() {
+                    this.value = this.value.replace(/[^0-9%]/g, '');
+                    if (!this.value.includes('%')) this.value += '%';
+                    const taskRow = this.closest('.task-row');
+                    taskRow.setAttribute('data-progress', this.value);
+                    saveTaskStatus();
+                });
+            });
+        }
+
+        // 打开详情弹窗
+        document.querySelectorAll('.task-row').forEach(row => {
+            row.addEventListener('click', function(e) {
+                if (e.target.classList.contains('task-parent') || e.target.type === 'checkbox' || e.target.type === 'text') return;
+                const taskName = this.getAttribute('data-name');
+                const taskLeader = this.getAttribute('data-leader');
+                const taskStart = this.getAttribute('data-start');
+                const taskEnd = this.getAttribute('data-end');
+                const taskProgress = this.getAttribute('data-progress');
+                const taskStatus = this.getAttribute('data-status');
+                const taskRemark = this.getAttribute('data-remark');
+
+                document.getElementById('modalTitle').textContent = `任务详情：${taskName}`;
+                document.getElementById('modalLeader').textContent = taskLeader;
+                document.getElementById('modalStart').textContent = taskStart;
+                document.getElementById('modalEnd').textContent = taskEnd;
+                document.getElementById('modalProgress').textContent = taskProgress;
+                document.getElementById('modalStatus').textContent = taskStatus;
+                document.getElementById('modalRemark').textContent = taskRemark;
+
+                document.getElementById('detailModal').style.display = 'flex';
+            });
+        });
+
+        // 关闭详情弹窗
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        // 点击弹窗外部关闭
+        window.addEventListener('click', function(e) {
+            const modal = document.getElementById('detailModal');
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // 更新任务样式（完成状态）
+        function updateTaskStyle(checkbox) {
+            const row = checkbox.closest('tr');
+            const taskName = row.querySelector('td:nth-child(2)');
+            if (checkbox.checked) {
+                taskName.classList.add('task-done');
+            } else {
+                taskName.classList.remove('task-done');
+            }
+        }
+
+        // 保存任务状态到本地存储
+        function saveTaskStatus() {
+            const status = {};
+            document.querySelectorAll('.task-row').forEach(row => {
+                const taskId = row.getAttribute('data-id');
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                status[taskId] = {
+                    checked: checkbox ? checkbox.checked : false,
+                    progress: row.getAttribute('data-progress'),
+                    status: row.getAttribute('data-status')
+                };
+            });
+            localStorage.setItem('projectTaskStatus', JSON.stringify(status));
+        }
+
+        // 从本地存储加载任务状态
+        function loadTaskStatus() {
+            const status = JSON.parse(localStorage.getItem('projectTaskStatus') || '{}');
+            document.querySelectorAll('.task-row').forEach(row => {
+                const taskId = row.getAttribute('data-id');
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                const progressInput = row.querySelector('input[type="text"]');
+                if (status[taskId]) {
+                    if (checkbox) checkbox.checked = status[taskId].checked;
+                    if (progressInput) progressInput.value = status[taskId].progress;
+                    row.setAttribute('data-progress', status[taskId].progress);
+                    row.setAttribute('data-status', status[taskId].status);
+                    if (checkbox) updateTaskStyle(checkbox);
+                }
+            });
+        }
+
+        // 页面加载初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化弹窗关闭事件
+            document.getElementById('closeModal').addEventListener('click', closeModal);
+        });
+    </script>
+</body>
+</html>
